@@ -1,27 +1,39 @@
-# pyOPAC/active_learning/predict_with_uncertainty.py
+# active_learning/predict_with_uncertainty.py
 
 import torch
 import numpy as np
 from torch.utils.data import DataLoader
 
-def predict_with_uncertainty(model, dataset, num_samples=10):
+def predict_with_uncertainty(model, dataset, batch_size=32, num_samples=10):
     """
-    Dummy function to return predictions and uncertainties.
-    In a real scenario, you might use Monte Carlo Dropout or an ensemble.
-    Here we perform one forward pass and assign a dummy uncertainty based on the standard deviation
-    of the outputs across each sample's features.
+    Predicts outputs and estimates uncertainties using Monte Carlo Dropout.
+
+    Args:
+        model: Trained model with dropout layers.
+        dataset: Dataset to predict.
+        batch_size: Batch size for DataLoader.
+        num_samples: Number of forward passes for uncertainty estimation.
+
+    Returns:
+        predictions: Mean predictions.
+        uncertainties: Standard deviation of predictions.
     """
-    loader = DataLoader(dataset, batch_size=32, shuffle=False)
+    model.train()  # Enable dropout during inference
+    dataloader = DataLoader(dataset, batch_size=batch_size)
     predictions = []
     uncertainties = []
-    model.eval()
-    with torch.no_grad():
-        for batch in loader:
-            inputs = batch['descriptors']
+
+    for batch in dataloader:
+        inputs = batch['descriptors']
+        preds = []
+        for _ in range(num_samples):
             outputs = model(inputs)
-            predictions.append(outputs.cpu().numpy())
-            # Dummy uncertainty: standard deviation across the output dimensions for each sample
-            uncertainties.append(np.std(outputs.cpu().numpy(), axis=1))
-    predictions = np.concatenate(predictions, axis=0)
-    uncertainties = np.concatenate(uncertainties, axis=0)
+            preds.append(outputs.detach().numpy())
+        preds = np.array(preds)
+        mean_preds = preds.mean(axis=0)
+        std_preds = preds.std(axis=0)
+        predictions.extend(mean_preds)
+        # Compute mean uncertainty across output dimensions
+        uncertainties.extend(std_preds.mean(axis=1))
+
     return predictions, uncertainties
