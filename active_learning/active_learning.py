@@ -1,25 +1,34 @@
 # pyOPAC/active_learning/active_learning.py
 
+import argparse
 import pandas as pd
 import torch
 import os
 from copy import deepcopy
 
-from .data_loader import MoleculeDataset
-from models.trainer import train_model, evaluate_model
+from .al_loop import run_al_loop  # Example if you want to call something from al_loop
+from .logger import get_logger
 from .predict_with_uncertainty import predict_with_uncertainty
 from .uncertainty_sampling import select_most_uncertain_samples
-from .logger import get_logger
+from pyOPAC.data.dataset import MoleculeDataset
+from pyOPAC.models.trainer import train_model, evaluate_model
 
 logger = get_logger(__name__)
 
-def run_active_learning(descriptors_file, targets_file, initial_train_size=10,
-                          query_size=5, iterations=10, model_output='models/al_trained_model.pth',
-                          hidden_dim=128, epochs=100, batch_size=32, learning_rate=1e-3, weight_decay=0.0):
+def run_active_learning(descriptors_file, targets_file,
+                        initial_train_size=10,
+                        query_size=5,
+                        iterations=10,
+                        model_output='models/al_trained_model.pth',
+                        hidden_dim=128,
+                        epochs=100,
+                        batch_size=32,
+                        learning_rate=1e-3,
+                        weight_decay=0.0):
     """
-    Run the active learning loop. In each iteration, new uncertain samples are queried and added to the training set.
-    The model is continuously trained (starting from previous weights). At the end, the final model and final
-    training data are saved.
+    Run the active learning loop. In each iteration, new uncertain samples are queried
+    and added to the training set. The model is continuously trained (starting from
+    previous weights). At the end, the final model and final training data are saved.
     """
     # Load data
     df_descriptors = pd.read_csv(descriptors_file)
@@ -30,7 +39,7 @@ def run_active_learning(descriptors_file, targets_file, initial_train_size=10,
     descriptor_columns = [col for col in df_descriptors.columns if col != 'mol_id']
     target_columns = [col for col in df_targets.columns if col != 'mol_id']
 
-    # Initialize labeled and unlabeled datasets
+    # Initialize labeled/unlabeled
     initial_train_df = df.sample(n=initial_train_size, random_state=42)
     unlabeled_df = df.drop(initial_train_df.index).reset_index(drop=True)
 
@@ -40,17 +49,17 @@ def run_active_learning(descriptors_file, targets_file, initial_train_size=10,
         logger.info("Not enough data for the specified iterations and query size.")
         return None
 
-    model = None  # This will hold the continuously trained model
+    model = None  # Start with no model
 
     for iteration in range(iterations):
-        logger.info(f"Active Learning Iteration {iteration + 1}/{iterations}")
+        logger.info(f"Active Learning Iteration {iteration+1}/{iterations}")
 
-        # Prepare training dataset
+        # Prepare train dataset
         train_descriptors = initial_train_df[descriptor_columns].to_dict('records')
         train_targets = initial_train_df[target_columns].to_dict('records')
         train_dataset = MoleculeDataset(train_descriptors, train_targets)
 
-        # Prepare test dataset (all data not in initial_train_df)
+        # Prepare test dataset (everything not in initial_train_df)
         test_df = df.drop(initial_train_df.index).reset_index(drop=True)
         test_descriptors = test_df[descriptor_columns].to_dict('records')
         test_targets = test_df[target_columns].to_dict('records')
@@ -58,7 +67,8 @@ def run_active_learning(descriptors_file, targets_file, initial_train_size=10,
 
         input_dim = len(descriptor_columns)
         output_dim = len(target_columns)
-        # Train (or continue training) the model using previous weights if available
+
+        # Train or continue training the model
         model = train_model(
             dataset=train_dataset,
             existing_model=model,
@@ -71,17 +81,18 @@ def run_active_learning(descriptors_file, targets_file, initial_train_size=10,
             weight_decay=weight_decay
         )
 
-        # Evaluate model on test set
+        # Evaluate
         test_loss, per_target_metrics = evaluate_model(model, test_dataset, batch_size=batch_size)
         logger.info(f"Test Loss (aggregated MSE): {test_loss:.4f}")
         for m in per_target_metrics:
             logger.info(f"[Target {m['target_index']}] MSE={m['MSE']:.4f}, MAE={m['MAE']:.4f}, R2={m['R2_Score']:.4f}")
 
+        # If unlabeled is empty, stop
         if unlabeled_df.empty:
-            logger.info("No more unlabeled samples available. Stopping Active Learning.")
+            logger.info("No more unlabeled samples. Stopping AL.")
             break
 
-        # Predict on unlabeled data with uncertainty estimation
+        # Predict on unlabeled data
         unlabeled_descriptors = unlabeled_df[descriptor_columns].to_dict('records')
         unlabeled_dataset = MoleculeDataset(unlabeled_descriptors, targets=None)
         predictions, uncertainties = predict_with_uncertainty(model, unlabeled_dataset)
@@ -94,7 +105,7 @@ def run_active_learning(descriptors_file, targets_file, initial_train_size=10,
         unlabeled_df = unlabeled_df.drop(queried_samples.index).reset_index(drop=True)
         logger.info(f"Queried {len(queried_samples)} samples in iteration {iteration+1}.")
 
-    # Save final model and training data
+    # Save final model
     torch.save(model, model_output)
     logger.info(f"Active Learning completed. Final model saved to {model_output}")
     final_train_data_file = os.path.splitext(model_output)[0] + "_final_train.csv"
@@ -103,7 +114,9 @@ def run_active_learning(descriptors_file, targets_file, initial_train_size=10,
 
     return model
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
+    import argparse
     parser = argparse.ArgumentParser(description="Run Active Learning for Molecular Property Prediction.")
     parser.add_argument('--descriptors-file', type=str, required=True)
     parser.add_argument('--targets-file', type=str, required=True)
@@ -117,6 +130,17 @@ if __name__ == '__main__':
     parser.add_argument('--learning-rate', type=float, default=1e-3)
     parser.add_argument('--weight-decay', type=float, default=0.0)
     args = parser.parse_args()
-    run_active_learning(args.descriptors_file, args.targets_file, args.initial_train_size,
-                        args.query_size, args.iterations, args.model_output, args.hidden_dim,
-                        args.epochs, args.batch_size, args.learning_rate, args.weight_decay)
+
+    run_active_learning(
+        descriptors_file=args.descriptors_file,
+        targets_file=args.targets_file,
+        initial_train_size=args.initial_train_size,
+        query_size=args.query_size,
+        iterations=args.iterations,
+        model_output=args.model_output,
+        hidden_dim=args.hidden_dim,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        learning_rate=args.learning_rate,
+        weight_decay=args.weight_decay
+    )
