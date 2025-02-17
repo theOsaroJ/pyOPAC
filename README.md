@@ -14,7 +14,7 @@ The project is organized into a package named `opac` (with several subpackages) 
 
 ## Directory Structure
 ```plaintext
-project/
+pyOPAC/
 ├── creating_the_xyz/
 │   └── modify.py                # Module to modify XYZ files and add molecule IDs
 ├── data/
