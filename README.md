@@ -13,43 +13,40 @@
 The project is organized into a package named `opac` (with several subpackages) and a separate module directory `creating_the_xyz`. Interactive notebooks are available to run each step of the workflow.
 
 ## Directory Structure
-pyOPAC/
-├── creating_the_xyz/           # Contains modules such as modify.py (ensure an __init__.py exists if you want it as a package)
-│   └── modify.py
-├── opac/                       # Main package directory (has an __init__.py)
-│   ├── active_learning/        # Active learning modules
-│   │   ├── __init__.py
-│   │   ├── active_learning.py
-│   │   ├── al_loop.py
-│   │   ├── data_loader.py
-│   │   ├── logger.py
-│   │   ├── predict_new_data.py
-│   │   ├── predict_properties.py
-│   │   ├── predict_with_uncertainty.py
-│   │   ├── trainer.py
-│   │   └── uncertainty_sampling.py
-│   ├── data/                   # Data-related modules
-│   │   ├── __init__.py
-│   │   ├── dataset.py
-│   │   ├── descriptors.py
-│   │   └── loader.py
-│   ├── models/                 # Model definition and training modules
-│   │   ├── __init__.py
-│   │   ├── generator.py
-│   │   ├── predictor.py
-│   │   └── trainer.py
-│   ├── scripts/                # Script modules for various workflow steps
-│   │   ├── compute_descriptors.py
-│   │   ├── generate_molecules.py
-│   │   ├── preprocess_data.py
-│   │   ├── run_active_learning.py
-│   │   ├── train_model.py
-│   │   └── predict_properties.py
-│   └── utils/                  # Utility modules
-│       └── logger.py
-├── setup.py                    # Setup script (see below)
-├── README.md                   # Long project description (see below)
-└── (other project files, e.g. notebooks, etc.)
+```plaintext
+project/
+├── creating_the_xyz/
+│   └── modify.py                # Module to modify XYZ files and add molecule IDs
+├── data/
+│   ├── targets.csv              # CSV file with target properties (user-provided)
+│   ├── descriptors.csv          # Generated descriptors for training molecules
+│   ├── new_descriptors.csv      # Generated descriptors for test molecules
+│   ├── training_xyz_files/      # Directory for modified training XYZ files (train.xyz)
+│   └── testing_xyz_files/       # Directory for modified test XYZ files (test.xyz)
+├── models/
+│   ├── trained_model.pth                # Saved trained property prediction model
+│   ├── trained_model.pth.params.json    # Model parameters (input_dim, hidden_dim, output_dim)
+│   ├── al_trained_model.pth             # Active-learning–trained model (optional)
+│   ├── generator.py                     # (Optional) Model generator (e.g., VAE)
+│   ├── predictor.py                     # Module for property prediction
+│   └── trainer.py                       # Model training and evaluation functions
+├── notebooks/
+│   ├── 01_Modify_Training_XYZ.py        # Notebook to modify training XYZ files
+│   ├── 02_Preprocess_Training_Data.py   # Notebook to compute training descriptors
+│   ├── 03_Train_Model.py                # Notebook to train the property prediction model
+│   ├── 04_Modify_Test_XYZ.py            # Notebook to modify test XYZ files
+│   ├── 05_Compute_Test_Descriptors.py   # Notebook to compute test descriptors
+│   ├── 06_Predict_Properties.py         # Notebook to predict properties using the trained model
+│   ├── 07_Active_Learning.py            # Notebook to run the active learning loop
+│   └── 08_Predict_with_AL_Model.py      # Notebook to predict properties with the AL model
+├── dataset.py                # Unified dataset module (from opac3/data/dataset.py)
+├── descriptors.py            # Module for computing molecular descriptors
+├── loader.py                 # Module to read and process XYZ files
+├── setup.py                  # Setup script for packaging the project
+├── README.md                 # This file
+└── utils/
+    └── logger.py             # Logging configuration module
+```
 
 
 ## Installation
