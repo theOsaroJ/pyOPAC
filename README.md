@@ -13,7 +13,43 @@
 The project is organized into a package named `opac` (with several subpackages) and a separate module directory `creating_the_xyz`. Interactive notebooks are available to run each step of the workflow.
 
 ## Directory Structure
-pyOPAC/ ├── creating_the_xyz/ # Modules for modifying XYZ files (ensure init.py if needed) │ └── modify.py ├── opac/ # Main package directory │ ├── active_learning/ # Active learning modules │ │ ├── init.py │ │ ├── active_learning.py │ │ ├── al_loop.py │ │ ├── data_loader.py │ │ ├── logger.py │ │ ├── predict_new_data.py │ │ ├── predict_properties.py │ │ ├── predict_with_uncertainty.py │ │ ├── trainer.py │ │ └── uncertainty_sampling.py │ ├── data/ # Data-related modules │ │ ├── init.py │ │ ├── dataset.py │ │ ├── descriptors.py │ │ └── loader.py │ ├── models/ # Model definition and training modules │ │ ├── init.py │ │ ├── generator.py │ │ ├── predictor.py │ │ └── trainer.py │ ├── scripts/ # Script modules for various workflow steps │ │ ├── compute_descriptors.py │ │ ├── generate_molecules.py │ │ ├── preprocess_data.py │ │ ├── run_active_learning.py │ │ ├── train_model.py │ │ └── predict_properties.py │ └── utils/ # Utility modules │ └── logger.py ├── setup.py # Setup script for packaging ├── README.md # This file └── (other files such as notebooks, etc.)
+pyOPAC/
+├── creating_the_xyz/           # Contains modules such as modify.py (ensure an __init__.py exists if you want it as a package)
+│   └── modify.py
+├── opac/                       # Main package directory (has an __init__.py)
+│   ├── active_learning/        # Active learning modules
+│   │   ├── __init__.py
+│   │   ├── active_learning.py
+│   │   ├── al_loop.py
+│   │   ├── data_loader.py
+│   │   ├── logger.py
+│   │   ├── predict_new_data.py
+│   │   ├── predict_properties.py
+│   │   ├── predict_with_uncertainty.py
+│   │   ├── trainer.py
+│   │   └── uncertainty_sampling.py
+│   ├── data/                   # Data-related modules
+│   │   ├── __init__.py
+│   │   ├── dataset.py
+│   │   ├── descriptors.py
+│   │   └── loader.py
+│   ├── models/                 # Model definition and training modules
+│   │   ├── __init__.py
+│   │   ├── generator.py
+│   │   ├── predictor.py
+│   │   └── trainer.py
+│   ├── scripts/                # Script modules for various workflow steps
+│   │   ├── compute_descriptors.py
+│   │   ├── generate_molecules.py
+│   │   ├── preprocess_data.py
+│   │   ├── run_active_learning.py
+│   │   ├── train_model.py
+│   │   └── predict_properties.py
+│   └── utils/                  # Utility modules
+│       └── logger.py
+├── setup.py                    # Setup script (see below)
+├── README.md                   # Long project description (see below)
+└── (other project files, e.g. notebooks, etc.)
 
 
 ## Installation
