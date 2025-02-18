@@ -62,6 +62,8 @@ pyOPAC/
 - **Additional Libraries:**  
   RDKit and Open Babel (install these separately, as they are not available via PyPI).
 
+  Conda is preferred and for a simple installation process, run install.sh. Also activate conda environment each time you need to use pyOPAC
+
 ## Usage
 
 ### Data Preparation
