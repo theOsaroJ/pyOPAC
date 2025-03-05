@@ -14,7 +14,7 @@ print(f"Read {len(molecules)} molecules from {input_dir}")
 descriptors_list = []
 for idx, atoms in enumerate(molecules):
     try:
-        desc = compute_descriptors(atoms)
+        desc = compute_descriptors(atoms, max_eigenvalues=22)
         desc['mol_id'] = idx  # assign molecule ID
         descriptors_list.append(desc)
     except Exception as e:
