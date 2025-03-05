@@ -75,7 +75,7 @@ for lr, hidden, wd in itertools.product(param_grid['learning_rate'],
     # If current configuration is better, store its parameters and model state.
     if test_loss < best_loss:
         best_loss = test_loss
-        best_params = {'learning_rate': lr, 'hidden_dim': hidden, 'weight_decay': wd}
+        best_params = {'input_dim': input_dim, 'output_dim': output_dim,'learning_rate': lr, 'hidden_dim': hidden, 'weight_decay': wd}
         best_model_state = model.state_dict()  # Save the state_dict
 
 print("Best Hyperparameters:")
