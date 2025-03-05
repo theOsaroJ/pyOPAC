@@ -25,7 +25,6 @@ def compute_rdkit_descriptors(mol: Chem.Mol) -> dict:
         'NumSaturatedRings': Descriptors.NumSaturatedRings(mol),
         'HeavyAtomCount': Descriptors.HeavyAtomCount(mol),
         'FractionCSP3': Descriptors.FractionCSP3(mol),
-        # Add more descriptors as needed
     }
     return descriptors
 
@@ -48,15 +47,20 @@ def compute_coulomb_matrix_eigenvalues(atoms: Atoms) -> np.ndarray:
                     coulomb_matrix[i, j] = (atomic_numbers[i] * atomic_numbers[j]) / distance
                 else:
                     coulomb_matrix[i, j] = 0.0  # Avoid division by zero
-    # Compute eigenvalues
     eigenvalues = eigh(coulomb_matrix, eigvals_only=True)
-    # Sort eigenvalues in descending order
     eigenvalues = np.sort(eigenvalues)[::-1]
     return eigenvalues
 
-def compute_descriptors(atoms: Atoms) -> dict:
+def compute_descriptors(atoms: Atoms, max_eigenvalues: int = 20) -> dict:
     """
     Computes descriptors for the given molecule represented as an ASE Atoms object.
+    
+    Parameters:
+      atoms: ASE Atoms object representing the molecule.
+      max_eigenvalues: Maximum number of Coulomb matrix eigenvalues to include.
+      
+    Returns:
+      A dictionary of computed descriptors.
     """
     # Convert ASE Atoms to RDKit Mol using Open Babel
     mol = atoms_to_rdkit_mol(atoms)
@@ -68,13 +72,13 @@ def compute_descriptors(atoms: Atoms) -> dict:
     
     # Compute Coulomb matrix eigenvalues
     eigenvalues = compute_coulomb_matrix_eigenvalues(atoms)
-    # Use a fixed length for eigenvalues (e.g., pad or truncate to length 20)
-    max_eigenvalues = 20
+    # Pad or truncate eigenvalues to the user-specified maximum number
     eigenvalues_padded = np.zeros(max_eigenvalues)
     n_eig = min(len(eigenvalues), max_eigenvalues)
     eigenvalues_padded[:n_eig] = eigenvalues[:n_eig]
     for i in range(max_eigenvalues):
         descriptors[f'CoulombEig_{i}'] = eigenvalues_padded[i]
+    
     return descriptors
 
 def atoms_to_rdkit_mol(atoms: Atoms) -> Chem.Mol:
@@ -85,7 +89,6 @@ def atoms_to_rdkit_mol(atoms: Atoms) -> Chem.Mol:
     import openbabel as ob
     from openbabel import openbabel
     from io import StringIO
-    import sys
 
     # Convert ASE Atoms to XYZ string
     xyz_str = StringIO()
