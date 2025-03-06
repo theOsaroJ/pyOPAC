@@ -1,7 +1,5 @@
 #!/bin/bash
 
-
-#In no particular order but use based on intuition which preprocessing data --> training model (make sure to put targets.csv in format as in example which is the y of the training molecules in ~./data) --
 # --> computing descriptors for new molecules after running python modify.py and moving file to right place ( see creating_xyz_files) for more details --
 # --> predicting properties of new molecule.
 ## --------------------------------- first make sure the multi-mol xyz of training data (xyz) is done in right form ---------------------###
