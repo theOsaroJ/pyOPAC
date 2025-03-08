@@ -3,8 +3,8 @@ import shutil
 from creating_the_xyz.modify import modify_xyz_file
 
 # Define file paths for test XYZ
-input_test_xyz = "test.xyz"
-modified_test_xyz = "test_m.xyz"
+input_test_xyz = "test_example.xyz"
+modified_test_xyz = "test.xyz"
 dest_dir = os.path.join("dataset", "testing_xyz_files")
 dest_file = os.path.join(dest_dir, "test.xyz")
 
