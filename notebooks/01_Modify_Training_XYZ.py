@@ -3,8 +3,8 @@ import shutil
 from creating_the_xyz.modify import modify_xyz_file
 
 # Define file paths
-input_xyz = "train.xyz"
-modified_xyz = "train_m.xyz"
+input_xyz = "train_example.xyz"
+modified_xyz = "train.xyz"
 dest_dir = os.path.join("dataset", "training_xyz_files")
 dest_file = os.path.join(dest_dir, "train.xyz")
 
