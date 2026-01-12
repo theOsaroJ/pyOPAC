@@ -34,10 +34,14 @@ def modify_xyz_file(input_file, output_file):
                     outfile.write(lines[i])
                 i += 1
 
-if __name__ == "__main__":
+def main():
+    """Main entry point for the modify_xyz command-line tool."""
     parser = argparse.ArgumentParser(description="Modify XYZ file to add molecule IDs")
     parser.add_argument("input_file", type=str, help="Path to the input XYZ file")
     parser.add_argument("output_file", type=str, help="Path to the output XYZ file")
 
     args = parser.parse_args()
     modify_xyz_file(args.input_file, args.output_file)
+
+if __name__ == "__main__":
+    main()
