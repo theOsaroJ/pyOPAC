@@ -1,0 +1,18 @@
+# Include README and license files
+include README.md
+include LICENSE
+include requirements.txt
+
+# Include package data
+recursive-include opac *.py
+recursive-include creating_the_xyz *.py
+
+# Exclude development files
+global-exclude *.pyc
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .DS_Store
+global-exclude .git*
+recursive-exclude tests *
+recursive-exclude examples *
+recursive-exclude notebooks *
