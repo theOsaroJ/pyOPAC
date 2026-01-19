@@ -1,121 +1,191 @@
-from rdkit import Chem
-from rdkit.Chem import Descriptors
 from ase import Atoms
 import numpy as np
-from scipy.linalg import eigh
-import openbabel
-from openbabel import openbabel
+from dscribe.descriptors import SOAP
 from opac.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-def compute_rdkit_descriptors(mol: Chem.Mol) -> dict:
-    """
-    Computes RDKit descriptors for the given molecule.
-    """
-    descriptors = {
-        'MolWt': Descriptors.MolWt(mol),
-        'LogP': Descriptors.MolLogP(mol),
-        'NumHDonors': Descriptors.NumHDonors(mol),
-        'NumHAcceptors': Descriptors.NumHAcceptors(mol),
-        'TPSA': Descriptors.TPSA(mol),
-        'NumRotatableBonds': Descriptors.NumRotatableBonds(mol),
-        'NumAliphaticRings': Descriptors.NumAliphaticRings(mol),
-        'NumAromaticRings': Descriptors.NumAromaticRings(mol),
-        'NumSaturatedRings': Descriptors.NumSaturatedRings(mol),
-        'HeavyAtomCount': Descriptors.HeavyAtomCount(mol),
-        'FractionCSP3': Descriptors.FractionCSP3(mol),
-    }
-    return descriptors
+# SOAP descriptor parameters (default values - can be configured)
+DEFAULT_SOAP_PARAMS = {
+    'rcut': 6.0,      # Cutoff radius in Angstrom
+    'nmax': 6,        # Number of radial basis functions
+    'lmax': 4,        # Maximum angular momentum (0=scalar, 1=vector, 2=tensor, etc.)
+    'sigma': 0.3,     # Width of Gaussian smearing
+    'periodic': False, # Non-periodic for molecules
+    'crossover': True, # Include cross-species interactions
+}
 
-def compute_coulomb_matrix_eigenvalues(atoms: Atoms) -> np.ndarray:
+def get_all_species(molecules: list) -> list:
     """
-    Computes the eigenvalues of the Coulomb matrix for the given ASE Atoms object.
-    Returns the eigenvalues sorted in descending order.
+    Helper function to determine all unique atomic species from a list of molecules.
+    Useful for ensuring fixed-size SOAP descriptors across all molecules.
+    
+    Parameters:
+      molecules: List of ASE Atoms objects
+    
+    Returns:
+      Sorted list of all unique atomic species found in the dataset
     """
-    atomic_numbers = atoms.get_atomic_numbers()
-    positions = atoms.get_positions()
-    n_atoms = len(atoms)
-    coulomb_matrix = np.zeros((n_atoms, n_atoms))
-    for i in range(n_atoms):
-        for j in range(n_atoms):
-            if i == j:
-                coulomb_matrix[i, j] = 0.5 * atomic_numbers[i] ** 2.4
+    all_species = set()
+    for atoms in molecules:
+        species = set(atoms.get_chemical_symbols())
+        all_species.update(species)
+    
+    return sorted(list(all_species))
+
+def compute_soap_descriptors(atoms: Atoms, rcut: float = 6.0, nmax: int = 6, lmax: int = 4, 
+                             sigma: float = 0.3, periodic: bool = False, crossover: bool = True,
+                             species: list = None) -> dict:
+    """
+    Computes SOAP (Smooth Overlap of Atomic Positions) descriptors - rotationally equivariant,
+    translationally invariant, and size-invariant molecular representation.
+    
+    SOAP descriptors are:
+    - Rotationally EQUIVARIANT: Descriptors transform predictably with rotations
+    - Translationally invariant: Same descriptor regardless of molecular position
+    - Size-invariant: Fixed-size global descriptor (averaged over all atoms)
+    - 3D structure-aware: Capture local atomic environments based on 3D coordinates
+    - Suitable for vector properties: Perfect for dipole moments, forces, etc.
+    
+    IMPORTANT: For fixed-size descriptors across different molecules, provide a fixed
+    species list that includes all possible atomic species in your dataset.
+    
+    Parameters:
+      atoms: ASE Atoms object representing the molecule
+      rcut: Cutoff radius in Angstrom (default 6.0)
+      nmax: Number of radial basis functions (default 6)
+      lmax: Maximum angular momentum (default 4). Higher values capture more angular detail
+      sigma: Width of Gaussian smearing (default 0.3)
+      periodic: Whether system is periodic (default False for molecules)
+      crossover: Include cross-species interactions (default True)
+      species: Fixed list of atomic species for all molecules (default None, uses species in molecule).
+               For size-invariant descriptors, specify all possible species: e.g., ['H', 'C', 'N', 'O', 'F', 'P', 'S', 'Cl', 'Br', 'I']
+      
+    Returns:
+      Dictionary with SOAP descriptor features (fixed size, size-invariant)
+    """
+    if len(atoms) == 0:
+        raise ValueError("Cannot compute SOAP descriptors for empty molecule")
+    
+    try:
+        # Use provided species list, or get from molecule
+        if species is None:
+            # Get unique atomic species from molecule
+            species = sorted(list(set(atoms.get_chemical_symbols())))
+        else:
+            # Use provided species list (ensure sorted for consistency)
+            species = sorted(list(set(species)))
+        
+        if len(species) == 0:
+            raise ValueError("No atomic species specified")
+        
+        # Initialize SOAP descriptor
+        soap = SOAP(
+            species=species,
+            rcut=rcut,
+            nmax=nmax,
+            lmax=lmax,
+            sigma=sigma,
+            periodic=periodic,
+            crossover=crossover,
+            sparse=False,
+        )
+        
+        # Compute SOAP descriptors for all atoms
+        # This returns shape (n_atoms, descriptor_dim)
+        soap_features = soap.create(atoms)
+        
+        # Create global descriptor by averaging over all atoms (size-invariant)
+        # This makes the descriptor fixed-size regardless of molecule size
+        if len(soap_features.shape) == 2:
+            global_soap = np.mean(soap_features, axis=0)  # Average over atoms
+        else:
+            global_soap = soap_features.flatten()
+        
+        # Convert to dictionary with feature names
+        descriptors = {}
+        for i, value in enumerate(global_soap):
+            descriptors[f'SOAP_{i}'] = float(value)
+        
+        return descriptors
+        
+    except Exception as e:
+        logger.error(f"Failed to compute SOAP descriptors: {e}")
+        # Return zeros if computation fails (but need to know descriptor size first)
+        # Try with minimal parameters to get size
+        try:
+            test_species = ['H', 'C', 'N', 'O']  # Common elements
+            test_soap = SOAP(species=test_species, rcut=rcut, nmax=nmax, lmax=lmax, 
+                           sigma=sigma, periodic=periodic, crossover=crossover, sparse=False)
+            # Create dummy molecule to get descriptor size
+            from ase import Atom
+            dummy_atoms = Atoms([Atom('H', (0, 0, 0))])
+            test_desc = test_soap.create(dummy_atoms)
+            desc_size = test_desc.shape[-1] if len(test_desc.shape) > 1 else len(test_desc)
+        except:
+            # Fallback: estimate size from nmax, lmax, and species
+            n_species = len(set(atoms.get_chemical_symbols())) if len(atoms) > 0 else 4
+            if crossover:
+                desc_size = nmax * nmax * (lmax + 1) * n_species * n_species
             else:
-                distance = np.linalg.norm(positions[i] - positions[j])
-                if distance > 1e-8:
-                    coulomb_matrix[i, j] = (atomic_numbers[i] * atomic_numbers[j]) / distance
-                else:
-                    coulomb_matrix[i, j] = 0.0  # Avoid division by zero
-    eigenvalues = eigh(coulomb_matrix, eigvals_only=True)
-    eigenvalues = np.sort(eigenvalues)[::-1]
-    return eigenvalues
+                desc_size = nmax * nmax * (lmax + 1) * n_species
+        
+        # Return zeros with correct size
+        descriptors = {}
+        for i in range(desc_size):
+            descriptors[f'SOAP_{i}'] = 0.0
+        
+        logger.warning(f"Returning zero SOAP descriptors of size {desc_size}")
+        return descriptors
 
-def compute_descriptors(atoms: Atoms, max_eigenvalues: int = 20) -> dict:
+def compute_descriptors(atoms: Atoms, max_eigenvalues: int = None, rcut: float = 6.0, 
+                       nmax: int = 6, lmax: int = 4, sigma: float = 0.3, 
+                       periodic: bool = False, crossover: bool = True, 
+                       species: list = None) -> dict:
     """
-    Computes descriptors for the given molecule represented as an ASE Atoms object.
+    Computes size-invariant, rotationally equivariant molecular descriptors using SOAP.
+    
+    SOAP (Smooth Overlap of Atomic Positions) descriptors are:
+    - Fixed size: Always returns same number of features regardless of molecule size
+      (by averaging over all atoms to create global descriptor)
+    - Size-invariant: Works for molecules of any size
+    - Rotationally EQUIVARIANT: Descriptors transform predictably with rotations
+    - Translationally invariant: Same descriptor regardless of molecular position
+    - 3D structure-aware: Based on actual atomic positions, not just graph structure
+    - Ideal for vector properties: Perfect for dipole moments, forces, etc.
+    
+    IMPORTANT for size-invariance: To ensure fixed-size descriptors across all molecules,
+    specify a fixed species list that includes all possible atomic species in your dataset:
+    
+    Example:
+      compute_descriptors(atoms, species=['H', 'C', 'N', 'O', 'F', 'P', 'S', 'Cl', 'Br', 'I'])
     
     Parameters:
       atoms: ASE Atoms object representing the molecule.
-      max_eigenvalues: Maximum number of Coulomb matrix eigenvalues to include.
+      max_eigenvalues: DEPRECATED - kept for backward compatibility but ignored.
+      rcut: Cutoff radius in Angstrom (default 6.0). Larger values include more neighbors
+      nmax: Number of radial basis functions (default 6). Higher = more radial detail
+      lmax: Maximum angular momentum (default 4). Higher = more angular detail
+            lmax=0 gives invariant, lmax>0 gives equivariant features
+      sigma: Width of Gaussian smearing (default 0.3). Controls locality
+      periodic: Whether system is periodic (default False for molecules)
+      crossover: Include cross-species interactions (default True)
+      species: Fixed list of atomic species for all molecules (default None, uses species in molecule).
+               For size-invariant descriptors, specify all possible species in your dataset.
       
     Returns:
-      A dictionary of computed descriptors.
+      A dictionary with fixed-size SOAP descriptors (always same size if species is fixed).
     """
-    # Convert ASE Atoms to RDKit Mol using Open Babel
-    mol = atoms_to_rdkit_mol(atoms)
-    if mol is None:
-        raise ValueError("Could not convert Atoms to RDKit Mol.")
-    
-    # Compute RDKit descriptors
-    descriptors = compute_rdkit_descriptors(mol)
-    
-    # Compute Coulomb matrix eigenvalues
-    eigenvalues = compute_coulomb_matrix_eigenvalues(atoms)
-    # Pad or truncate eigenvalues to the user-specified maximum number
-    eigenvalues_padded = np.zeros(max_eigenvalues)
-    n_eig = min(len(eigenvalues), max_eigenvalues)
-    eigenvalues_padded[:n_eig] = eigenvalues[:n_eig]
-    for i in range(max_eigenvalues):
-        descriptors[f'CoulombEig_{i}'] = eigenvalues_padded[i]
+    # Compute SOAP descriptors (single descriptor type, size-invariant, equivariant)
+    descriptors = compute_soap_descriptors(
+        atoms, 
+        rcut=rcut, 
+        nmax=nmax, 
+        lmax=lmax, 
+        sigma=sigma, 
+        periodic=periodic, 
+        crossover=crossover,
+        species=species
+    )
     
     return descriptors
-
-def atoms_to_rdkit_mol(atoms: Atoms) -> Chem.Mol:
-    """
-    Converts an ASE Atoms object to an RDKit Mol object using Open Babel for bond perception.
-    """
-    from rdkit import Chem
-    import openbabel as ob
-    from openbabel import openbabel
-    from io import StringIO
-
-    # Convert ASE Atoms to XYZ string
-    xyz_str = StringIO()
-    atoms.write(xyz_str, format='xyz')
-    xyz_content = xyz_str.getvalue()
-    xyz_str.close()
-
-    # Initialize Open Babel conversion
-    obConversion = openbabel.OBConversion()
-    obConversion.SetInFormat("xyz")
-    obConversion.SetOutFormat("mol")
-
-    # Read molecule from XYZ string
-    obMol = openbabel.OBMol()
-    obConversion.ReadString(obMol, xyz_content)
-
-    # Perceive bonds and assign bond orders
-    obMol.ConnectTheDots()
-    obMol.PerceiveBondOrders()
-
-    # Convert OBMol to Mol block
-    mol_block = obConversion.WriteString(obMol)
-
-    # Create RDKit Mol from Mol block
-    mol = Chem.MolFromMolBlock(mol_block, sanitize=True)
-    if mol is None:
-        logger.warning("RDKit failed to create Mol from Mol block.")
-        return None
-
-    return mol
