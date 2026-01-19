@@ -4,8 +4,8 @@ scikit-learn
 torch
 torchvision
 torch_geometric
-rdkit
 ase
 matplotlib
 tqdm
 pybel
+dscribe
